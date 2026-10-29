@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudySnap — snap your notes, actually get them</title>
+<meta name="description" content="Upload a photo of your notes or textbook. Get a simple explanation, a quiz and flashcards. Built on Gemma 4.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #111111;
+    --paper: #fff6dc;
+    --white: #ffffff;
+    --yellow: #ffd93d;
+    --pink: #ff7eb6;
+    --blue: #6cb4ff;
+    --green: #7ee081;
+    --red: #ff5a4d;
+    --border: 3px solid var(--ink);
+    --shadow: 6px 6px 0 var(--ink);
+    --shadow-sm: 3px 3px 0 var(--ink);
+    --display: "Space Grotesk", "Arial Black", Impact, system-ui, sans-serif;
+    --mono: "Space Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--display);
+    font-weight: 500;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image: radial-gradient(var(--ink) 1px, transparent 1px);
+    background-size: 22px 22px;
+    background-attachment: fixed;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3 { font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; }
+  button { font-family: inherit; cursor: pointer; }
+  :focus-visible { outline: 4px solid var(--blue); outline-offset: 3px; }
+
+  /* ---------- shared brutal pieces ---------- */
+  .card { background: var(--white); border: var(--border); box-shadow: var(--shadow); padding: 24px; }
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    border: var(--border); padding: 3px 10px; background: var(--yellow);
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 17px; font-weight: 700; color: var(--ink);
+    background: var(--yellow); border: var(--border); box-shadow: var(--shadow-sm);
+    padding: 12px 22px; transition: transform .08s, box-shadow .08s;
+  }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+  .btn:disabled { background: #ddd; color: #777; cursor: not-allowed; transform: none; box-shadow: var(--shadow-sm); }
+  .btn.pink { background: var(--pink); }
+  .btn.blue { background: var(--blue); }
+  .btn.green { background: var(--green); }
+  .btn.big { font-size: 20px; padding: 16px 30px; }
+
+  /* ---------- header ---------- */
+  header { border-bottom: var(--border); background: var(--white); }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; padding-top: 14px; padding-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+  .logo { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; background: var(--yellow); border: var(--border); box-shadow: var(--shadow-sm); padding: 2px 12px; transform: rotate(-1.5deg); }
+  nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  nav a { color: var(--ink); font-weight: 700; text-decoration: none; padding: 4px 10px; border: 3px solid transparent; }
+  nav a:hover { border-color: var(--ink); background: var(--pink); }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 56px 0 44px; }
+  .hero h1 { font-size: clamp(40px, 7.5vw, 84px); max-width: 900px; }
+  .hl { display: inline-block; padding: 0 10px; border: var(--border); box-shadow: var(--shadow-sm); }
+  .hl.y { background: var(--yellow); transform: rotate(-1.5deg); }
+  .hl.p { background: var(--pink); transform: rotate(1deg); }
+  .hero p { font-size: 20px; max-width: 620px; margin: 26px 0 30px; }
+  .hero .cta { display: flex; gap: 16px; flex-wrap: wrap; }
+
+  .marquee { border-block: var(--border); background: var(--ink); color: var(--yellow); overflow: hidden; white-space: nowrap; font-family: var(--mono); font-weight: 700; font-size: 18px; padding: 10px 0; }
+  .marquee span { display: inline-block; padding-left: 100%; animation: slide 22s linear infinite; }
+  @keyframes slide { to { transform: translateX(-100%); } }
+
+  /* ---------- tool ---------- */
+  section { padding: 56px 0; }
+  section > .wrap > h2 { font-size: clamp(30px, 5vw, 46px); margin-bottom: 26px; }
+  .tool-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 800px) { .tool-grid { grid-template-columns: 1fr; } }
+
+  .drop {
+    border: 3px dashed var(--ink); background: var(--paper); min-height: 260px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    text-align: center; padding: 20px; cursor: pointer; transition: background .1s;
+  }
+  .drop:hover, .drop.over { background: var(--blue); }
+  .drop .big-icon { font-size: 54px; line-height: 1; }
+  .drop b { font-size: 22px; }
+  .drop small { font-family: var(--mono); font-size: 13px; }
+  #preview { display: none; max-width: 100%; max-height: 340px; border: var(--border); box-shadow: var(--shadow-sm); }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+  .file-name { font-family: var(--mono); font-size: 13px; margin-top: 12px; word-break: break-all; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-family: var(--mono); font-weight: 700; font-size: 13px; text-transform: uppercase; margin-bottom: 6px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg button { font-size: 15px; font-weight: 700; background: var(--white); border: var(--border); padding: 6px 12px; box-shadow: 2px 2px 0 var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--green); transform: translate(2px, 2px); box-shadow: none; }
+  .switch { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; }
+  .switch input { appearance: none; width: 54px; height: 30px; border: var(--border); background: var(--white); position: relative; cursor: pointer; flex: none; }
+  .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: var(--ink); transition: left .12s; }
+  .switch input:checked { background: var(--pink); }
+  .switch input:checked::after { left: 26px; }
+  .hint { font-family: var(--mono); font-size: 12px; margin-top: 6px; }
+
+  /* ---------- loader / errors ---------- */
+  #loader { display: none; margin-top: 28px; background: var(--yellow); }
+  #loader.on { display: block; }
+  .bars { display: flex; gap: 8px; margin-top: 14px; }
+  .bars i { width: 22px; height: 22px; background: var(--ink); animation: hop .8s infinite ease-in-out; }
+  .bars i:nth-child(2) { animation-delay: .1s; } .bars i:nth-child(3) { animation-delay: .2s; } .bars i:nth-child(4) { animation-delay: .3s; }
+  @keyframes hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+  #error { display: none; margin-top: 28px; background: var(--red); color: var(--ink); font-weight: 700; }
+  #error.on { display: block; }
+
+  /* ---------- results ---------- */
+  #results { display: none; }
+  #results.on { display: block; }
+  .topic { font-size: clamp(28px, 4.5vw, 44px); margin: 14px 0 22px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: -3px; position: relative; z-index: 1; }
+  .tabs button { font-size: 16px; font-weight: 700; background: var(--white); border: var(--border); border-right: 0; padding: 10px 18px; }
+  .tabs button:last-child { border-right: var(--border); }
+  .tabs button[aria-selected="true"] { background: var(--pink); }
+  .panel { display: none; background: var(--white); border: var(--border); box-shadow: var(--shadow); padding: 26px; }
+  .panel.on { display: block; }
+  .panel h3 { font-size: 24px; margin: 22px 0 10px; }
+  .panel h3:first-child { margin-top: 0; }
+  .prose p { margin-bottom: 14px; font-size: 18px; }
+  .prose strong { background: var(--yellow); padding: 0 4px; }
+  ul.points { list-style: none; display: grid; gap: 10px; }
+  ul.points li { border: var(--border); padding: 10px 14px 10px 46px; position: relative; background: var(--paper); }
+  ul.points li::before { content: "→"; position: absolute; left: 14px; font-weight: 700; }
+  ol.steps { list-style: none; counter-reset: s; display: grid; gap: 10px; }
+  ol.steps li { counter-increment: s; border: var(--border); padding: 10px 14px 10px 54px; position: relative; background: var(--blue); }
+  ol.steps li::before { content: counter(s); position: absolute; left: 10px; top: 8px; width: 30px; height: 30px; background: var(--ink); color: var(--white); display: grid; place-items: center; font-family: var(--mono); font-weight: 700; }
+
+  .q { border: var(--border); padding: 18px; margin-bottom: 18px; background: var(--paper); }
+  .q p.qt { font-weight: 700; font-size: 19px; margin-bottom: 12px; }
+  .opts { display: grid; gap: 8px; }
+  .opt { text-align: left; font-size: 16px; font-weight: 500; background: var(--white); border: var(--border); padding: 10px 14px; box-shadow: 2px 2px 0 var(--ink); }
+  .opt:hover:not(:disabled) { background: var(--yellow); }
+  .opt.right { background: var(--green); font-weight: 700; }
+  .opt.wrong { background: var(--red); font-weight: 700; }
+  .opt:disabled { cursor: default; }
+  .why { margin-top: 12px; font-family: var(--mono); font-size: 14px; display: none; border-left: 6px solid var(--ink); padding-left: 12px; }
+  .score { display: none; font-size: 30px; font-weight: 700; background: var(--yellow); border: var(--border); box-shadow: var(--shadow-sm); padding: 10px 18px; width: fit-content; }
+  .score.on { display: block; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .fc { min-height: 150px; border: var(--border); box-shadow: var(--shadow-sm); padding: 18px; background: var(--white); text-align: left; font-size: 18px; font-weight: 700; display: flex; flex-direction: column; justify-content: space-between; transition: transform .1s; }
+  .fc:hover { transform: rotate(-1deg) translateY(-3px); }
+  .fc small { font-family: var(--mono); font-size: 11px; text-transform: uppercase; opacity: .7; }
+  .fc.flipped { background: var(--green); font-weight: 500; }
+
+  .chat-log { display: grid; gap: 12px; max-height: 420px; overflow-y: auto; margin-bottom: 18px; padding: 4px 6px 8px 2px; }
+  .msg { border: var(--border); padding: 10px 14px; max-width: 88%; box-shadow: 3px 3px 0 var(--ink); font-size: 16px; white-space: pre-wrap; }
+  .msg.me { background: var(--blue); justify-self: end; }
+  .msg.bot { background: var(--paper); justify-self: start; }
+  .msg strong { background: var(--yellow); padding: 0 3px; }
+  .chat-form { display: flex; gap: 10px; }
+  .chat-form input { flex: 1; font: inherit; border: var(--border); padding: 12px 14px; background: var(--white); min-width: 0; }
+
+  /* ---------- how it works ---------- */
+  .steps3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 26px; }
+  .steps3 .card:nth-child(1) { background: var(--yellow); transform: rotate(-.8deg); }
+  .steps3 .card:nth-child(2) { background: var(--pink); transform: rotate(.6deg); }
+  .steps3 .card:nth-child(3) { background: var(--blue); transform: rotate(-.4deg); }
+  .steps3 .n { font-family: var(--mono); font-size: 54px; font-weight: 700; line-height: 1; }
+  .steps3 h3 { font-size: 26px; margin: 10px 0; }
+
+  .gemma-box { background: var(--ink); color: var(--white); border: var(--border); box-shadow: 6px 6px 0 var(--pink); padding: 28px; }
+  .gemma-box h2 { color: var(--yellow); margin-bottom: 14px; }
+  .gemma-box code { font-family: var(--mono); background: var(--white); color: var(--ink); padding: 1px 6px; font-size: 14px; }
+  .gemma-box ul { margin: 14px 0 0 20px; display: grid; gap: 8px; }
+
+  footer { border-top: var(--border); background: var(--yellow); padding: 26px 0; font-family: var(--mono); font-size: 14px; font-weight: 700; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">StudySnap</div>
+    <nav>
+      <a href="#tool">Try it</a>
+      <a href="#how">How it works</a>
+      <a href="#gemma">Gemma 4</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <span class="tag">Built on Gemma 4</span>
+    <h1 style="margin-top:18px">Snap your notes. <span class="hl y">Get it.</span> <span class="hl p">Ace it.</span></h1>
+    <p>Notes, a textbook page or a homework question &mdash; just upload a photo. You get a simple explanation, a quiz and flashcards in seconds.</p>
+    <div class="cta">
+      <a href="#tool" class="btn big" style="text-decoration:none">Get started &darr;</a>
+      <a href="#gemma" class="btn big blue" style="text-decoration:none">How is Gemma 4 used?</a>
+    </div>
+  </div>
+
+  <div class="marquee" aria-hidden="true"><span>PHOTO &rarr; EXPLANATION &rarr; QUIZ &rarr; FLASHCARDS &rarr; DOUBT CHAT &rarr; REPEAT &nbsp;&nbsp;&nbsp; PHOTO &rarr; EXPLANATION &rarr; QUIZ &rarr; FLASHCARDS &rarr; DOUBT CHAT &rarr; REPEAT</span></div>
+
+  <section id="tool">
+    <div class="wrap">
+      <h2>Upload your photo</h2>
+      <div class="tool-grid">
+        <div class="card">
+          <input type="file" id="file" accept="image/*" hidden>
+          <input type="file" id="camera" accept="image/*" capture="environment" hidden>
+
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose an image">
+            <img id="preview" alt="Preview of your upload">
+            <div id="drop-text">
+              <div class="big-icon">&#128247;</div>
+              <b>Drop it here or click to browse</b><br>
+              <small>JPG / PNG / WebP &middot; up to 8 MB</small>
+            </div>
+          </div>
+          <div class="file-name" id="file-name"></div>
+          <div class="actions">
+            <button class="btn blue" id="btn-camera" type="button">Use camera</button>
+            <button class="btn pink" id="btn-clear" type="button" style="display:none">Remove</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <label id="lbl-level">Level</label>
+            <div class="seg" id="seg-level" role="group" aria-labelledby="lbl-level">
+              <button type="button" aria-pressed="false" data-v="Class 6-8">6-8</button>
+              <button type="button" aria-pressed="false" data-v="Class 9-10">9-10</button>
+              <button type="button" aria-pressed="true" data-v="Class 11-12">11-12</button>
+              <button type="button" aria-pressed="false" data-v="College">College</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="switch"><input type="checkbox" id="deep"> Deep thinking mode</label>
+            <div class="hint">Turns on Gemma 4's thinking mode. Better for maths and physics problems, but a bit slower.</div>
+          </div>
+          <button class="btn big green" id="go" type="button" disabled style="width:100%">Explain it</button>
+        </div>
+      </div>
+
+      <div class="card" id="loader" role="status" aria-live="polite">
+        <b style="font-size:22px" id="loader-msg">Reading your photo...</b>
+        <div class="bars"><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="card" id="error" role="alert"></div>
+    </div>
+  </section>
+
+  <section id="results" style="padding-top:0">
+    <div class="wrap">
+      <span class="tag">Result</span>
+      <h2 class="topic" id="topic"></h2>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="explain">Explain</button>
+        <button role="tab" aria-selected="false" data-tab="quiz">Quiz</button>
+        <button role="tab" aria-selected="false" data-tab="cards">Flashcards</button>
+        <button role="tab" aria-selected="false" data-tab="chat">Doubt</button>
+      </div>
+
+      <div class="panel on" id="p-explain">
+        <div class="prose" id="explanation"></div>
+        <h3>Key points to remember</h3>
+        <ul class="points" id="points"></ul>
+        <div id="steps-wrap" style="display:none">
+          <h3>Step-by-step solution</h3>
+          <ol class="steps" id="steps"></ol>
+        </div>
+        <div class="actions"><button class="btn" id="btn-export" type="button">Download notes (.md)</button></div>
+      </div>
+
+      <div class="panel" id="p-quiz">
+        <div class="score" id="score"></div>
+        <div id="quiz"></div>
+      </div>
+
+      <div class="panel" id="p-cards">
+        <p style="margin-bottom:16px;font-family:var(--mono);font-size:14px">Click a card to reveal the answer.</p>
+        <div class="cards" id="cards"></div>
+      </div>
+
+      <div class="panel" id="p-chat">
+        <div class="chat-log" id="chat-log" aria-live="polite">
+          <div class="msg bot">Got a doubt about this topic? Ask away.</div>
+        </div>
+        <form class="chat-form" id="chat-form">
+          <input id="chat-input" type="text" placeholder="e.g. explain this more simply" maxlength="1000" autocomplete="off">
+          <button class="btn pink" type="submit" id="chat-send">Send</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <div class="steps3">
+        <div class="card"><div class="n">01</div><h3>Upload a photo</h3><p>The photo is shrunk in your browser (max 1600px) and then sent to the server. Nothing is saved.</p></div>
+        <div class="card"><div class="n">02</div><h3>Gemma 4 reads it</h3><p>The image and the instructions go to Gemma 4 in one request. It reads the handwriting, diagrams and formulas and replies with structured study material.</p></div>
+        <div class="card"><div class="n">03</div><h3>Practise</h3><p>Read the explanation, take the quiz, flip the flashcards, and ask the chat about anything that is still unclear.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gemma" style="padding-top:0">
+    <div class="wrap">
+      <div class="gemma-box">
+        <h2>Where Gemma 4 is used</h2>
+        <p>The whole project runs on one open model, served through the Gemini API. Four places:</p>
+        <ul>
+          <li><b>Understanding the image</b> &mdash; <code>/api/analyze</code> sends the photo and the prompt to Gemma 4 together (multimodal input).</li>
+          <li><b>Structured output</b> &mdash; a system instruction makes the model reply in a fixed JSON shape: explanation, quiz, flashcards.</li>
+          <li><b>Doubt chat</b> &mdash; <code>/api/chat</code> runs a multi-turn chat session with the uploaded material as context.</li>
+          <li><b>Thinking mode</b> &mdash; switching the toggle on sets <code>thinking_level="high"</code>.</li>
+        </ul>
+        <p style="margin-top:16px;font-family:var(--mono);font-size:14px">Model: gemma-4-26b-a4b-it &middot; full details are in readme.md and documents.md.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>StudySnap &middot; Gemma 4 via Gemini API</span>
+    <span>Photos are never stored on the server.</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { file: null, material: "", history: [], answered: 0, correct: 0, total: 0 };
+
+  /* ---------- tiny helpers ---------- */
+  // Build elements without innerHTML so model output can never inject markup.
+  function h(tag, props = {}, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+    
